@@ -2,7 +2,6 @@ package com.example.wallcar;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -18,7 +17,6 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.ParcelUuid;
-import android.view.View;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -40,9 +38,9 @@ public class MainActivity extends AppCompatActivity {
 
     boolean scanning = false;
     boolean connected = false;
-    String serviceUuid = "00000001-2276-4574-8adf-33af0ecdf20f";
-    String propUuid = "00000001-6ebc-4ae9-8ca1-fec7da94d7d2";
-    String driveUuid = "00000002-e451-4f97-983f-51cce04e34bf";
+    UUID serviceUuid = UUID.fromString("00000001-2276-4574-8adf-33af0ecdf20f");
+    UUID propUuid = UUID.fromString("00000001-6ebc-4ae9-8ca1-fec7da94d7d2");
+    UUID driveUuid = UUID.fromString("00000002-e451-4f97-983f-51cce04e34bf");
 
     private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
@@ -63,9 +61,9 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
-            BluetoothGattService service = gatt.getService(UUID.fromString(serviceUuid));
-            BluetoothGattCharacteristic propCharacteristic = service.getCharacteristic(UUID.fromString(propUuid));
-            BluetoothGattCharacteristic driveCharacteristic = service.getCharacteristic(UUID.fromString(driveUuid));
+            BluetoothGattService service = gatt.getService(serviceUuid);
+            BluetoothGattCharacteristic propCharacteristic = service.getCharacteristic(propUuid);
+            BluetoothGattCharacteristic driveCharacteristic = service.getCharacteristic(driveUuid);
 
             propCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
             driveCharacteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
@@ -106,14 +104,10 @@ public class MainActivity extends AppCompatActivity {
                 public void onStopTrackingTouch(SeekBar seekBar) {
                 }
             });
-            connButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    disconnect(gatt);
-                }
-            });
+            connButton.setOnClickListener(view -> disconnect(gatt));
         }
     };
+
     private final ScanCallback leScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
@@ -137,12 +131,7 @@ public class MainActivity extends AppCompatActivity {
         prop = findViewById(R.id.seekBar);
         drive = findViewById(R.id.seekBar2);
 
-        connButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                connect();
-            }
-        });
+        connButton.setOnClickListener(view -> connect());
     }
 
     public void connect() {
@@ -161,32 +150,23 @@ public class MainActivity extends AppCompatActivity {
         connStatus.setText("Suche Arduino...");
 
         ScanFilter.Builder filter = new ScanFilter.Builder();
-        filter.setServiceUuid(ParcelUuid.fromString(serviceUuid));
+        filter.setServiceUuid(new ParcelUuid(serviceUuid));
         ScanSettings.Builder settings = new ScanSettings.Builder();
         settings.setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH);
 
         leScanner.startScan(Collections.singletonList(filter.build()), settings.build(), leScanCallback);
 
         Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                leScanner.stopScan(leScanCallback);
-                scanning = false;
-                connStatus.setText("Kein Arduino mit den\nbenötigten Services und\nCharakteristika gefunden.");
-            }
+        handler.postDelayed(() -> {
+            leScanner.stopScan(leScanCallback);
+            scanning = false;
+            connStatus.setText("Kein Arduino mit passender\nService-UUID gefunden.");
         }, 10000);
     }
 
     public void disconnect(BluetoothGatt gatt) {
         gatt.close();
         gatt.disconnect();
-        connButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                connect();
-            }
-        });
+        connButton.setOnClickListener(view -> connect());
     }
-
 }
