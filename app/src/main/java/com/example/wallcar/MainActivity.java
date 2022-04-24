@@ -28,33 +28,35 @@ import java.util.Collections;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    SeekBar prop;
-    SeekBar drive;
-    TextView connStatus;
-    Button connButton;
+    public SeekBar prop;
+    public SeekBar drive;
+    public TextView connStatus;
+    public Button connButton;
 
-    BluetoothAdapter bluetoothAdapter;
-    BluetoothLeScanner leScanner;
+    public BluetoothAdapter bluetoothAdapter;
+    public BluetoothLeScanner leScanner;
 
-    boolean scanning = false;
-    boolean connected = false;
-    UUID serviceUuid = UUID.fromString("00000001-2276-4574-8adf-33af0ecdf20f");
-    UUID propUuid = UUID.fromString("00000001-6ebc-4ae9-8ca1-fec7da94d7d2");
-    UUID driveUuid = UUID.fromString("00000002-e451-4f97-983f-51cce04e34bf");
+    public boolean scanning = false;
+    public boolean connected = false;
+    public UUID serviceUuid = UUID.fromString("00000001-2276-4574-8adf-33af0ecdf20f");
+    public UUID propUuid = UUID.fromString("00000001-6ebc-4ae9-8ca1-fec7da94d7d2");
+    public UUID driveUuid = UUID.fromString("00000002-e451-4f97-983f-51cce04e34bf");
 
-    private final BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
+    public BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            super.onConnectionStateChange(gatt, status, newState);
-            if (newState == BluetoothProfile.STATE_CONNECTED && status == BluetoothGatt.GATT_SUCCESS) {
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
                 connected = true;
                 connButton.setText("Trennen");
+                connButton.setOnClickListener(view -> disconnect(gatt));
                 connStatus.setText("Verbunden mit: " + gatt.getDevice().getName()
                         + "\nMAC-Adresse: " + gatt.getDevice().getAddress());
                 gatt.discoverServices();
-            } else {
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                gatt.close();
                 connected = false;
                 connButton.setText("Verbinden");
+                connButton.setOnClickListener(view -> connect());
                 connStatus.setText("Kein Arduino verbunden.");
             }
         }
@@ -73,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                 public void onProgressChanged(SeekBar seekBar, int value, boolean fromUser) {
                     if (connected) {
                         // Replace writing method when Android 13 arrives
-                        propCharacteristic.setValue(String.valueOf(value));
+                        propCharacteristic.setValue(value, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
                         gatt.writeCharacteristic(propCharacteristic);
                     }
                 }
@@ -90,8 +92,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onProgressChanged(SeekBar seekBar, int value, boolean fromUser) {
                     if (connected) {
-                        // Replace writing method when Android 13 arrives
-                        driveCharacteristic.setValue(String.valueOf(value));
+                        driveCharacteristic.setValue(value, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
                         gatt.writeCharacteristic(driveCharacteristic);
                     }
                 }
@@ -104,22 +105,19 @@ public class MainActivity extends AppCompatActivity {
                 public void onStopTrackingTouch(SeekBar seekBar) {
                 }
             });
-            connButton.setOnClickListener(view -> disconnect(gatt));
         }
     };
 
-    private final ScanCallback leScanCallback = new ScanCallback() {
+    public ScanCallback leScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            super.onScanResult(callbackType, result);
-            leScanner.stopScan(leScanCallback);
-            result.getDevice().connectGatt(MainActivity.this, false, gattCallback);
             scanning = false;
+            result.getDevice().connectGatt(getApplicationContext(), true, gattCallback);
         }
     };
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -152,21 +150,19 @@ public class MainActivity extends AppCompatActivity {
         ScanFilter.Builder filter = new ScanFilter.Builder();
         filter.setServiceUuid(new ParcelUuid(serviceUuid));
         ScanSettings.Builder settings = new ScanSettings.Builder();
-        settings.setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH);
+        settings.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY);
 
-        leScanner.startScan(Collections.singletonList(filter.build()), settings.build(), leScanCallback);
-
-        Handler handler = new Handler();
-        handler.postDelayed(() -> {
-            leScanner.stopScan(leScanCallback);
-            scanning = false;
-            connStatus.setText("Kein Arduino mit passender\nService-UUID gefunden.");
+        (new Handler()).postDelayed(() -> {
+            if (!connected) {
+                leScanner.stopScan(leScanCallback);
+                scanning = false;
+                connStatus.setText("Kein Arduino mit passender\nService-UUID gefunden.");
+            }
         }, 10000);
+        leScanner.startScan(Collections.singletonList(filter.build()), settings.build(), leScanCallback);
     }
 
     public void disconnect(BluetoothGatt gatt) {
-        gatt.close();
         gatt.disconnect();
-        connButton.setOnClickListener(view -> connect());
     }
 }
