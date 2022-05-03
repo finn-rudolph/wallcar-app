@@ -32,6 +32,8 @@ public class MainActivity extends AppCompatActivity {
     public SeekBar drive;
     public TextView connStatus;
     public Button connButton;
+    public TextView propVal;
+    public TextView driveVal;
 
     public BluetoothAdapter bluetoothAdapter;
     public BluetoothLeScanner leScanner;
@@ -78,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
                         propCharacteristic.setValue(value, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
                         gatt.writeCharacteristic(propCharacteristic);
                     }
+                    propVal.setText("Propeller " + value + "%");
                 }
 
                 @Override
@@ -95,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
                         driveCharacteristic.setValue(value, BluetoothGattCharacteristic.FORMAT_UINT8, 0);
                         gatt.writeCharacteristic(driveCharacteristic);
                     }
+                    driveVal.setText("Vortrieb " + value + "%");
                 }
 
                 @Override
@@ -128,8 +132,39 @@ public class MainActivity extends AppCompatActivity {
         connButton = findViewById(R.id.button);
         prop = findViewById(R.id.seekBar);
         drive = findViewById(R.id.seekBar2);
+        propVal = findViewById(R.id.textView);
+        driveVal = findViewById(R.id.textView2);
 
         connButton.setOnClickListener(view -> connect());
+
+        prop.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int value, boolean fromUser) {
+                propVal.setText("Propeller " + value + "%");
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
+        drive.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int value, boolean fromUser) {
+                driveVal.setText("Vortrieb " + value + "%");
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+            }
+        });
     }
 
     public void connect() {
